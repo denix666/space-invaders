@@ -3,7 +3,7 @@ use macroquad::prelude::*;
 // window size in pixels
 pub const WINDOW_WIDTH: i32 = 700;
 pub const WINDOW_HEIGHT: i32 = 550;
-
+pub const MINIMAL_TIME_BETWEEN_BOMBS: f64 = 0.6;
 pub const ENEMY_INIT_SPEED: f32 = 0.7;
 
 pub struct Resources {
