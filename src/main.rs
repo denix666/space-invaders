@@ -321,6 +321,9 @@ async fn main() {
                         }
                     }
                 }
+                if is_key_pressed(KeyCode::Escape) {
+                    game_state = GameState::Paused;
+                }
                 
                 if is_key_down(KeyCode::Up) {
                     if bullets.len() == 0 {
@@ -441,7 +444,10 @@ async fn main() {
                 }
             },
             GameState::Paused => {
-
+                show_text(resources.font, "GAME PAUSED", "press 'space' to continue...");
+                if is_key_pressed(KeyCode::Space) {
+                    game_state = GameState::Game;
+                }
             },
             GameState::LevelCompleted => {
                 draw_info(resources.font, 
