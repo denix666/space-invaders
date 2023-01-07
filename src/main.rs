@@ -25,6 +25,9 @@ use bullet::Bullet;
 mod bomb;
 use bomb::Bomb;
 
+mod ufo;
+use ufo::Ufo;
+
 fn window_conf() -> Conf {
     let mut title = String::from("Space Invaders v");
     title.push_str(env!("CARGO_PKG_VERSION"));
@@ -124,7 +127,7 @@ fn draw_info(font: Font, score: &str, hi_score: &str, lives: &str) {
         },
     );
 
-    draw_text_ex("LIVES: ", 240.0, 545.0, 
+    draw_text_ex("LIVES: ", 260.0, 545.0, 
         TextParams {
             font,
             font_size: 25,
@@ -133,7 +136,7 @@ fn draw_info(font: Font, score: &str, hi_score: &str, lives: &str) {
         },
     );
 
-    draw_text_ex(lives, 355.0, 545.0, 
+    draw_text_ex(lives, 375.0, 545.0, 
         TextParams {
             font,
             font_size: 25,
@@ -205,9 +208,12 @@ async fn main() {
     let mut game = Game::new().await;
     let mut enemy_direction: Dir = Dir::Left;
     let mut bullets: Vec<Bullet> = Vec::new();
+    let mut ufo: Vec<Ufo> = Vec::new();
     let mut bombs: Vec<Bomb> = Vec::new();
     let mut bomb_last_time: f64 = get_time();
     let mut time_between_bombs: f64;
+    let mut ufo_last_time: f64 = get_time();
+    let mut next_bonus_at: i32 = 1000;
 
     loop {
         clear_background(BLACK);
@@ -216,12 +222,36 @@ async fn main() {
             GameState::Intro => {
                 game.score = 0;
                 game.lives = 3;
-                game_state = GameState::InitLevel;
+                game.mission = 1;
+                game.enemy_speed = resources::ENEMY_INIT_SPEED;
+
+                draw_texture(resources.intro, 0.0, 0.0, WHITE);
+                if is_key_pressed(KeyCode::Space) {
+                    game_state = GameState::InitLevel;
+                }
             },
             GameState::InitLevel => {
-                game.enemy_speed = resources::ENEMY_INIT_SPEED;
                 bomb_last_time = get_time();
-                game_state = GameState::Game;
+                player.x = 320.0;
+                draw_info(resources.font, 
+                    game.score.to_string().as_str(), 
+                    game.hi_score.to_string().as_str(),
+                  game.lives.to_string().as_str());
+
+                for enemy in &mut enemies {
+                    enemy.draw();
+                }
+                for block in &mut blocks {
+                    block.draw();
+                }
+                
+                let mut header_text = String::from("MISSION - ");
+                header_text.push_str(&game.mission.to_string());
+                show_text(resources.font, header_text.as_str(), "press 'space' to start...");
+
+                if is_key_pressed(KeyCode::Space) {
+                    game_state = GameState::Game;
+                }
             },
             GameState::Game => {
                 draw_info(resources.font, 
@@ -239,6 +269,36 @@ async fn main() {
                             game_state = GameState::LevelFail;
                         } else {
                             game_state = GameState::GameOver;
+                        }
+                    }
+
+                    if bullets.len() > 0 {
+                        if let Some(_i) = bomb.rect.intersect(bullets[0].rect) {
+                            bomb.destroyed = true;
+                            bullets[0].destroyed = true;
+                            game.score += 5;
+                        }
+                    }
+                }
+
+                if get_time() - ufo_last_time > resources::MINIMAL_TIME_BETWEEN_EACH_UFO {
+                    let from_side = match rand::thread_rng().gen_range(0..=1) {
+                        0 => "left",
+                        _ => "right",
+                    };
+                    ufo.push(
+                        Ufo::new(from_side).await,
+                    );
+                    ufo_last_time = get_time();
+                }
+
+                if ufo.len() > 0 {
+                    ufo[0].draw();
+                    if bullets.len() > 0 {
+                        if let Some(_i) = bullets[0].rect.intersect(ufo[0].rect) {
+                            ufo[0].destroyed = true;
+                            bullets[0].destroyed = true;
+                            game.score += 100;
                         }
                     }
                 }
@@ -262,7 +322,7 @@ async fn main() {
                     }
                 }
                 
-                if is_key_down(KeyCode::Space) {
+                if is_key_down(KeyCode::Up) {
                     if bullets.len() == 0 {
                         bullets.push(
                             Bullet::new(player.x + 32.0, player.y, &resources).await,
@@ -336,7 +396,7 @@ async fn main() {
 
                 if need_to_pull_down {
                     for enemy in &mut enemies {
-                        enemy.y += 12.0;
+                        enemy.y += 10.0;
                     }
                     game.enemy_speed += 0.2;
                 }
@@ -347,6 +407,11 @@ async fn main() {
 
                 if game.score > game.hi_score {
                     game.hi_score = game.score;
+                }
+
+                if game.score > next_bonus_at {
+                    game.lives += 1;
+                    next_bonus_at += 1000;
                 }
 
                 if enemies.len() == 0 {
@@ -365,12 +430,13 @@ async fn main() {
                 for block in &mut blocks {
                     block.draw();
                 }
-                show_text(resources.font, "LEVEL FAIL", "press 'space' to continue...");
+                show_text(resources.font, "MISSION FAIL", "press 'space' to continue...");
                 if is_key_pressed(KeyCode::Space) {
                     game.lives -= 1;
                     player.x = 320.0;
                     bullets.clear();
                     bombs.clear();
+                    ufo.clear();
                     game_state = GameState::Game;
                 }
             },
@@ -378,15 +444,25 @@ async fn main() {
 
             },
             GameState::LevelCompleted => {
-                show_text(resources.font, "LEVEL COMPLETED", "press 'space' to continue...");
+                draw_info(resources.font, 
+                    game.score.to_string().as_str(), 
+                    game.hi_score.to_string().as_str(),
+                  game.lives.to_string().as_str());
+                for block in &mut blocks {
+                    block.draw();
+                }
+                show_text(resources.font, "MISSION COMPLETED", "press 'space' to continue...");
                 if is_key_pressed(KeyCode::Space) {
                     player.x = 320.0;
                     bullets.clear();
                     bombs.clear();
                     enemies.clear();
+                    ufo.clear();
                     enemies = make_enemies_array().await;
                     blocks.clear();
                     blocks = make_blocks_array(&resources).await;
+                    game.mission += 1;
+                    game.enemy_speed = resources::ENEMY_INIT_SPEED + game.mission as f32 * 0.2;
                     game_state = GameState::InitLevel;
                 }
             },
@@ -404,13 +480,17 @@ async fn main() {
                 }
                 show_text(resources.font, "GAME OVER", "press 'space' to start new game...");
                 if is_key_pressed(KeyCode::Space) {
-                    game.lives = 3;
-                    player.x = 320.0;
-                    game.score = 0;
-                    enemies.clear();
-                    enemies = make_enemies_array().await;
+                    bullets.clear();
+                    bombs.clear();
+                    ufo.clear();
                     blocks.clear();
                     blocks = make_blocks_array(&resources).await;
+                    enemies.clear();
+                    enemies = make_enemies_array().await;
+                    game.score = 0;
+                    game.lives = 3;
+                    game.mission = 1;
+                    game.enemy_speed = resources::ENEMY_INIT_SPEED;
                     game_state = GameState::InitLevel;
                 }
             },
@@ -441,6 +521,13 @@ async fn main() {
         match bombs.iter().position(|x| x.destroyed == true) {
             Some(idx) => {
                 bombs.remove(idx);
+            },
+            None => {},
+        };
+
+        match ufo.iter().position(|x| x.destroyed == true) {
+            Some(idx) => {
+                ufo.remove(idx);
             },
             None => {},
         };

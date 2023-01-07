@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-const ENEMY_ANIMATION_SPEED: i32 = 7;
+const ENEMY_ANIMATION_SPEED: i32 = 11;
 
 pub struct Enemy {
     pub x: f32,
@@ -47,8 +47,6 @@ impl Enemy {
         self.update_animation();
         draw_texture(self.texture[self.cur_frame], self.x, self.y, WHITE);
 
-        self.rect.w = self.texture[self.cur_frame].width();
-        self.rect.h = self.texture[self.cur_frame].height();
         self.rect.x = self.x;
         self.rect.y = self.y;
     }

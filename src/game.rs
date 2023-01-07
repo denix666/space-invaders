@@ -3,6 +3,7 @@ pub struct Game {
     pub hi_score: i32,
     pub enemy_speed: f32,
     pub lives: i32,
+    pub mission: i32,
 }
 
 impl Game {
@@ -12,6 +13,7 @@ impl Game {
             hi_score: 0,
             enemy_speed: 0.0,
             lives: 0,
+            mission: 0,
         }
     }
 }
