@@ -19,7 +19,7 @@ jobs:
 
     - shell: bash
       run: |
-        mv target/release/space-invaders tetris
+        mv target/release/space-invaders space-invaders
         chmod 777 space-invaders
         tar cpfz space-invaders_linux_x86_64.tar.gz space-invaders assets
         
